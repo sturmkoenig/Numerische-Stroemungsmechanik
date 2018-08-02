@@ -25,16 +25,7 @@ function AB2(z₀, x, t, t_f, params, upwinding)
 
 	diffSys!(z_now, x, dz_dt, spacial_partials, Ax, boundary_coeffs, params, upwinding)
 	z_now = z_now .+ Δt*dz_dt
-	plot(x,z_now[2])
-	i = 0
 	while t < t_f
-		i+=1	
-		#if (i%100) == 0
-		#	cla()
-		#	ylim(-0.001, 0.01)
-		#	plot(x,z_now[2])
-		#	sleep(0.01)
-		#end
 		diffSys!(z_now, x, dz_dt, spacial_partials, Ax, boundary_coeffs, params, upwinding)
 		diffSys!(z_last, x, dzl_dt, spacial_partials, Ax, boundary_coeffs, params, upwinding)
 		z_last = z_now
@@ -42,7 +33,6 @@ function AB2(z₀, x, t, t_f, params, upwinding)
 
 		t += Δt
 	end
-	println(dz_dt[2])
 
 	return z_now
 end
@@ -95,7 +85,7 @@ N = 120
 Δt = 1e-4
 ρ_e = 0.999
 γ = 1.4
-t_f = 2.
+t_f = 1.
 t = 0.
 x = linspace(0.,1.,N+1)
 Δx = 1./N
@@ -108,9 +98,9 @@ z₀ = [ρ,v,T]
 params = [γ, Δx, Δt, N]
 
 z = AB2(z₀, x, t, t_f, params, true)
-#println(z[1])
-#println(z[2])
-#println(z[3])
+# println(z[1])
+# println(z[2])
+# println(z[3])
 
 fig,(ax1,ax2,ax3) = plt[:subplots](3,1)
 

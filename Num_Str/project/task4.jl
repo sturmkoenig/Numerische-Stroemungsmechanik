@@ -81,19 +81,18 @@ function integrator()
 		return g
 	end
 	
-	function ∂t(x::variables, ∂x::variables)
-		∂x.ρ = -(1./A) .* ∂x(x.ρ  .* x.v .* A)
-		∂x.v = -1./(γ.*x.ρ) .* ∂x(x.ρ.*x.ρ) .- x.v .* ∂x(x.v, true)
-		∂x.T = -1 .* x.v .* ∂x(x.T) .- (γ-1) .* (x.T.*∂x(x.v) .+ x.T .* x.v .* ∂lnA)
+	function ∂t(x::variables)
+		ρ = -(1./A) .* ∂x(x.ρ  .* x.v .* A)
+		v = -1./(γ.*x.ρ) .* ∂x(x.ρ.*x.ρ) .- x.v .* ∂x(x.v, true)
+		T = -1 .* x.v .* ∂x(x.T) .- (γ-1) .* (x.T.*∂x(x.v) .+ x.T .* x.v .* ∂lnA)
+		erg = variables(ρ,v,T)
 	end
 		
 	function euler_explicit(x₀)
-		∂t(x₀, ∂x)
-	    x₁ = x₀ .+ Δt.*∂t.*∂x
+	    x₁ = x₀ .+ Δt.*∂t(x₀)
 	end
 	
-	function AB1(x₀, x₁, ∂x₀)
-		∂x₁	
+	function AB1(x₀, x₁)
 	    x₂ = x₁ .+ 1/2*Δt.*(3∂t(x₁) .- ∂t(x₀))
 	end
 	
@@ -106,31 +105,29 @@ function integrator()
 	end
 	
 	var = variables(fill(ρe,N+1), zeros(N+1), ones(N+1))
-	
 	var.ρ[1]=1
 	
-	steps = 0:Δt:100
+	steps = 0:Δt:1
 	solution = Array{variables}(size(steps,1))
 	
 	solution[1] = var
 	solution[2] = euler_explicit(solution[1])
-	∂x = 
-
+	
 	fig = figure()
 	ax = axes()
 	
 	BC!(solution[1])
-	#plot(x, solution[1].v)
+	plot(x, solution[1].v)
 	for i in 3:(size(steps,1))
 		solution[i] = AB1(solution[i-2], solution[i-1]) 
 		BC!(solution[i])
-		#if (i%100) == 0
-		#	cla()
-		#	ylim(-0.001,0.01)
-		#	title(i)
-		#	plot(x,solution[i].v)	
-		#	sleep(0.01)
-		#end
+		if (i%100) == 0
+			cla()
+			ylim(-0.001,0.01)
+			title(i)
+			plot(x,solution[i].v)	
+			sleep(0.01)
+		end
 	end
 end
 
