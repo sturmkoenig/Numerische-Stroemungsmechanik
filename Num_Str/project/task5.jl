@@ -30,10 +30,7 @@ function *(A, B::variables)
 end
 
 
-
-
 function integrator()
-
 	function Area(x) 
 		if 0 <= x <= .5
 			return 1. + 2.2(x - 0.5)^2
@@ -49,54 +46,71 @@ function integrator()
 			return .44(x-.5)
 		end
 	end
-
+	
 	ρe = 0.999
 	γ = 1.4
 	N = 120
-	Δt = 1e-4
+	Δt = 1e-3
 	Δx = 1/(N)
-	upwinding = false
 	x = linspace(0,1,N+1)
 	global A = Area.(x)
 	global ∂A = ∂Area.(x)
-	global ∂lnA = ∂A./A
-
-	function ∂x(f, upw=false)
+	
+	
+	function f_pred(x)
+		g = ∂t(x)
+		return x + Δt*g, g 
+	end
+	
+	function ∂f_corr(x)
+		return ∂t(x, true)
+	end
+	
+	function MC(x)
+		# y is the predicted parameter
+		y, ∂y= f_pred(x)
+		g = x + Δt/2 * (∂y + ∂f_corr(y))
+	end
+	
+	
+	function ∂x(f, corr=false)
 		g = similar(f)
 	
 		for i in 2:(size(f,1)-1) 
-			if upw
-				if f[i]<0
-					g[i] = (f[i+1]-f[i])/Δx
-				else
-					g[i] = (f[i]-f[i-1])/Δx
-				end
+			if corr
+				g[i] = (f[i+1]-f[i])/Δx
 			else
-				g[i] = (f[i+1]-f[i-1])/(2Δx)
+				g[i] = (f[i]-f[i-1])/Δx
 			end
 		end
 	
 		g[1] = -(f[3]-4f[2]+3f[1])/2Δx
-		g[end] = (f[end-2] - 4f[end-1] + 3f[end])/(2Δx)
+		g[end] = (f[end-2] - 4f[end-1] + 3f[end])/2Δx
 		return g
 	end
 	
-	function ∂t(x::variables, ∂x::variables)
-		∂x.ρ = -(1./A) .* ∂x(x.ρ  .* x.v .* A)
-		∂x.v = -1./(γ.*x.ρ) .* ∂x(x.ρ.*x.ρ) .- x.v .* ∂x(x.v, true)
-		∂x.T = -1 .* x.v .* ∂x(x.T) .- (γ-1) .* (x.T.*∂x(x.v) .+ x.T .* x.v .* ∂lnA)
-	end
-		
-	function euler_explicit(x₀)
-		∂t(x₀, ∂x)
-	    x₁ = x₀ .+ Δt.*∂t.*∂x
+	function ∂t(x::variables, corr=false)
+		ρ = ∂ρ(x.ρ, x.v, corr)
+		v = ∂v(x.ρ, x.v, x.T, corr)
+		T = ∂T(x.v, x.T, corr)
+		erg = variables(ρ,v,T)
 	end
 	
-	function AB1(x₀, x₁, ∂x₀)
-		∂x₁	
-	    x₂ = x₁ .+ 1/2*Δt.*(3∂t(x₁) .- ∂t(x₀))
+	function ∂ρ(ρ,v, corr=false)
+		global A
+		-(1./A) .* ∂x(ρ  .* v .* A, corr)
 	end
 	
+	function ∂v(ρ,v,T, corr=false)
+		-1./(γ.*ρ) .* ∂x(ρ.*T, corr) .- v .* ∂x(v, corr)
+	end
+	
+	function ∂T(v,T, corr=false)
+		global A
+		global ∂A
+		-1 .* v .* ∂x(T, corr) .- (γ-1) .* (T.*∂x(v, corr) .+ T .* v .* ∂A./A)
+	end
+
 	
 	function BC!(x::variables)
 		x.ρ[1]=1.
@@ -106,31 +120,24 @@ function integrator()
 	end
 	
 	var = variables(fill(ρe,N+1), zeros(N+1), ones(N+1))
-	
 	var.ρ[1]=1
 	
-	steps = 0:Δt:100
+	steps = 0:Δt:400
 	solution = Array{variables}(size(steps,1))
 	
 	solution[1] = var
-	solution[2] = euler_explicit(solution[1])
-	∂x = 
-
-	fig = figure()
-	ax = axes()
 	
-	BC!(solution[1])
-	#plot(x, solution[1].v)
-	for i in 3:(size(steps,1))
-		solution[i] = AB1(solution[i-2], solution[i-1]) 
+	plot(x, solution[1].v)
+	for i in 2:(size(steps,1))
+		solution[i] = MC(solution[i-1]) 
 		BC!(solution[i])
-		#if (i%100) == 0
-		#	cla()
-		#	ylim(-0.001,0.01)
-		#	title(i)
-		#	plot(x,solution[i].v)	
-		#	sleep(0.01)
-		#end
+		if (i%100) == 0
+			cla()
+			ylim(-0.001,0.1)
+			title(i)
+			plot(x,solution[i].v)	
+			sleep(0.01)
+		end
 	end
 end
 

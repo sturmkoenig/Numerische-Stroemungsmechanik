@@ -59,7 +59,6 @@ function integrator()
 	x = linspace(0,1,N+1)
 	global A = Area.(x)
 	global ∂A = ∂Area.(x)
-	global ∂lnA = ∂A./A
 
 	function ∂x(f, upw=false)
 		g = similar(f)
@@ -81,20 +80,34 @@ function integrator()
 		return g
 	end
 	
-	function ∂t(x::variables, ∂x::variables)
-		∂x.ρ = -(1./A) .* ∂x(x.ρ  .* x.v .* A)
-		∂x.v = -1./(γ.*x.ρ) .* ∂x(x.ρ.*x.ρ) .- x.v .* ∂x(x.v, true)
-		∂x.T = -1 .* x.v .* ∂x(x.T) .- (γ-1) .* (x.T.*∂x(x.v) .+ x.T .* x.v .* ∂lnA)
-	end
-		
-	function euler_explicit(x₀)
-		∂t(x₀, ∂x)
-	    x₁ = x₀ .+ Δt.*∂t.*∂x
+	function ∂t(x::variables)
+		ρ = ∂ρ(x.ρ, x.v)
+		v = ∂v(x.ρ, x.v, x.T)
+		T = ∂T(x.v, x.T)
+		erg = variables(ρ,v,T)
 	end
 	
-	function AB1(x₀, x₁, ∂x₀)
-		∂x₁	
-	    x₂ = x₁ .+ 1/2*Δt.*(3∂t(x₁) .- ∂t(x₀))
+	function ∂ρ(ρ,v)
+		global A
+		-(1./A) .* ∂x(ρ  .* v .* A)
+	end
+	
+	function ∂v(ρ,v,T)
+		-1./(γ.*ρ) .* ∂x(ρ.*T) .- v .* ∂x(v, true)
+	end
+	
+	function ∂T(v,T)
+		global A
+		global ∂A
+		-1 .* v .* ∂x(T) .- (γ-1) .* (T.*∂x(v) .+ T .* v .* ∂x(A)./A)
+	end
+	
+	function euler_explicit(x₀)
+	    x₁ = x₀ .+ Δt.*∂t(x₀)
+	end
+	
+	function AB1(x₀, x₁)
+	    x₂= x₁ .+ 1/2*Δt.*(3∂t(x₁) .- ∂t(x₀))
 	end
 	
 	
@@ -106,31 +119,30 @@ function integrator()
 	end
 	
 	var = variables(fill(ρe,N+1), zeros(N+1), ones(N+1))
-	
 	var.ρ[1]=1
 	
-	steps = 0:Δt:100
+	steps = 0:Δt:2
 	solution = Array{variables}(size(steps,1))
 	
 	solution[1] = var
 	solution[2] = euler_explicit(solution[1])
-	∂x = 
-
+	
 	fig = figure()
 	ax = axes()
 	
 	BC!(solution[1])
-	#plot(x, solution[1].v)
+	plot(x, solution[1].v)
 	for i in 3:(size(steps,1))
+		
 		solution[i] = AB1(solution[i-2], solution[i-1]) 
 		BC!(solution[i])
-		#if (i%100) == 0
-		#	cla()
-		#	ylim(-0.001,0.01)
-		#	title(i)
-		#	plot(x,solution[i].v)	
-		#	sleep(0.01)
-		#end
+		if (i%100) == 0
+			cla()
+			ylim(-0.001,0.01)
+			title(i)
+			plot(x,solution[i].v)	
+			sleep(0.01)
+		end
 	end
 end
 
